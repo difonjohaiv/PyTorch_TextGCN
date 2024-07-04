@@ -18,11 +18,11 @@ class GraphConvolution(Module):
         if bias:
             self.bias = Parameter(th.FloatTensor(out_features))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.weight.size(1))
+        stdv = 1.0 / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
@@ -36,21 +36,29 @@ class GraphConvolution(Module):
             return output
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' \
-               + str(self.in_features) + ' -> ' \
-               + str(self.out_features) + ')'
+        return (
+            self.__class__.__name__
+            + " ("
+            + str(self.in_features)
+            + " -> "
+            + str(self.out_features)
+            + ")"
+        )
 
 
 class GCN(Module):
     def __init__(self, nfeat, nhid, nclass, dropout):
         super(GCN, self).__init__()
         self.gc1 = GraphConvolution(nfeat, nhid)
-        self.gc2 = GraphConvolution(nhid, nclass)
+        self.gc2 = GraphConvolution(nhid, nhid)
+        self.fc = th.nn.Linear(nhid, nclass)
         self.dropout = dropout
 
     def forward(self, x, adj):
         x = self.gc1(x, adj)
         x = th.relu(x)
         x = th.dropout(x, self.dropout, train=self.training)
-        x = self.gc2(x, adj)
-        return x
+        # x = self.gc2(x, adj)
+        x = th.spmm(adj, x)
+        logits = self.fc(x)
+        return logits

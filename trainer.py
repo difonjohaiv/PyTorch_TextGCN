@@ -1,12 +1,12 @@
 import gc
 import warnings
 from time import time
-
 import networkx as nx
 import numpy as np
 import pandas as pd
 import torch as th
 from sklearn.model_selection import train_test_split
+
 
 from layer import GCN
 from utils import accuracy
@@ -45,13 +45,16 @@ class PrepareData:
         self.args = args
 
         # graph
-        graph = nx.read_weighted_edgelist(f"{self.graph_path}/{args.dataset}.txt"
-                                          , nodetype=int)
+        graph = nx.read_weighted_edgelist(
+            f"{self.graph_path}/{args.dataset}.txt", nodetype=int
+        )
         print_graph_detail(graph)
-        adj = nx.to_scipy_sparse_matrix(graph,
-                                        nodelist=list(range(graph.number_of_nodes())),
-                                        weight='weight',
-                                        dtype=np.float)
+        adj = nx.to_scipy_sparse_matrix(
+            graph,
+            nodelist=list(range(graph.number_of_nodes())),
+            weight="weight",
+            dtype=float,
+        )
 
         adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
 
@@ -63,10 +66,9 @@ class PrepareData:
         self.nfeat_dim = graph.number_of_nodes()
         row = list(range(self.nfeat_dim))
         col = list(range(self.nfeat_dim))
-        value = [1.] * self.nfeat_dim
+        value = [1.0] * self.nfeat_dim
         shape = (self.nfeat_dim, self.nfeat_dim)
-        indices = th.from_numpy(
-                np.vstack((row, col)).astype(np.int64))
+        indices = th.from_numpy(np.vstack((row, col)).astype(np.int64))
         values = th.FloatTensor(value)
         shape = th.Size(shape)
 
@@ -76,9 +78,7 @@ class PrepareData:
         # target
 
         target_fn = f"data/text_dataset/{self.args.dataset}.txt"
-        target = np.array(pd.read_csv(target_fn,
-                                      sep="\t",
-                                      header=None)[2])
+        target = np.array(pd.read_csv(target_fn, sep="\t", header=None)[2])
         target2id = {label: indx for indx, label in enumerate(set(target))}
         self.target = [target2id[label] for label in target]
         self.nclass = len(target2id)
@@ -108,10 +108,12 @@ class TextGCNTrainer:
 
     def fit(self):
         self.prepare_data()
-        self.model = self.model(nfeat=self.nfeat_dim,
-                                nhid=self.args.nhid,
-                                nclass=self.nclass,
-                                dropout=self.args.dropout)
+        self.model = self.model(
+            nfeat=self.nfeat_dim,
+            nhid=self.args.nhid,
+            nclass=self.nclass,
+            dropout=self.args.dropout,
+        )
         print(self.model.parameters)
         self.model = self.model.to(self.device)
 
@@ -119,7 +121,7 @@ class TextGCNTrainer:
         self.criterion = th.nn.CrossEntropyLoss()
 
         self.model_param = sum(param.numel() for param in self.model.parameters())
-        print('# model parameters:', self.model_param)
+        print("# model parameters:", self.model_param)
         self.convert_tensor()
 
         start = time()
@@ -143,10 +145,12 @@ class TextGCNTrainer:
         self.target = self.predata.target
         self.nclass = self.predata.nclass
 
-        self.train_lst, self.val_lst = train_test_split(self.predata.train_lst,
-                                                        test_size=self.args.val_ratio,
-                                                        shuffle=True,
-                                                        random_state=self.args.seed)
+        self.train_lst, self.val_lst = train_test_split(
+            self.predata.train_lst,
+            test_size=self.args.val_ratio,
+            shuffle=True,
+            random_state=self.args.seed,
+        )
         self.test_lst = self.predata.test_lst
 
     def convert_tensor(self):
@@ -163,17 +167,20 @@ class TextGCNTrainer:
             self.optimizer.zero_grad()
 
             logits = self.model.forward(self.features, self.adj)
-            loss = self.criterion(logits[self.train_lst],
-                                  self.target[self.train_lst])
+            loss = self.criterion(logits[self.train_lst], self.target[self.train_lst])
 
             loss.backward()
             self.optimizer.step()
 
             val_desc = self.val(self.val_lst)
 
-            desc = dict(**{"epoch"     : epoch,
-                           "train_loss": loss.item(),
-                           }, **val_desc)
+            desc = dict(
+                **{
+                    "epoch": epoch,
+                    "train_loss": loss.item(),
+                },
+                **val_desc,
+            )
 
             self.set_description(desc)
 
@@ -185,20 +192,18 @@ class TextGCNTrainer:
         self.model.eval()
         with th.no_grad():
             logits = self.model.forward(self.features, self.adj)
-            loss = self.criterion(logits[x],
-                                  self.target[x])
-            acc = accuracy(logits[x],
-                           self.target[x])
-            f1, precision, recall = macro_f1(logits[x],
-                                             self.target[x],
-                                             num_classes=self.nclass)
+            loss = self.criterion(logits[x], self.target[x])
+            acc = accuracy(logits[x], self.target[x])
+            f1, precision, recall = macro_f1(
+                logits[x], self.target[x], num_classes=self.nclass
+            )
 
             desc = {
                 f"{prefix}_loss": loss.item(),
-                "acc"           : acc,
-                "macro_f1"      : f1,
-                "precision"     : precision,
-                "recall"        : recall,
+                "acc": acc,
+                "macro_f1": f1,
+                "precision": precision,
+                "recall": recall,
             }
         return desc
 
@@ -215,19 +220,19 @@ def main(dataset, times):
     args = parameter_parser()
     args.dataset = dataset
 
-    args.device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
+    args.device = th.device("cuda") if th.cuda.is_available() else th.device("cpu")
     args.nhid = 200
-    args.max_epoch = 200
+    args.max_epoch = 500
     args.dropout = 0.5
     args.val_ratio = 0.1
-    args.early_stopping = 10
+    args.early_stopping = 50
     args.lr = 0.02
     model = GCN
 
     print(args)
 
     predata = PrepareData(args)
-    cudause = CudaUse()
+    # cudause = CudaUse()
 
     record = LogResult()
     seed_lst = list()
@@ -239,9 +244,9 @@ def main(dataset, times):
         framework = TextGCNTrainer(model=model, args=args, pre_data=predata)
         framework.fit()
 
-        if th.cuda.is_available():
-            gpu_mem = cudause.gpu_mem_get(_id=0)
-            record.log_single(key="gpu_mem", value=gpu_mem)
+        # if th.cuda.is_available():
+        #     gpu_mem = cudause.gpu_mem_get(_id=0)
+        #     record.log_single(key="gpu_mem", value=gpu_mem)
 
         record.log(framework.test())
 
@@ -256,11 +261,11 @@ def main(dataset, times):
     record.show_str()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     # for d in ["mr", "ohsumed", "R52", "R8", "20ng"]:
     #     main(d)
-    main("mr", 1)
+    # main("mr", 10)
     # main("ohsumed")
-    # main("R8", 1)
+    main("R8", 2)
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

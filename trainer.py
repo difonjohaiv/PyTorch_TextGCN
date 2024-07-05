@@ -20,6 +20,7 @@ from utils import preprocess_adj
 from utils import print_graph_detail
 from utils import read_file
 from utils import return_seed
+from layer import drop_feature
 
 th.backends.cudnn.deterministic = True
 th.backends.cudnn.benchmark = True
@@ -168,7 +169,19 @@ class TextGCNTrainer:
             self.optimizer.zero_grad()
 
             _, logits = self.model.forward(self.features, self.adj)
-            loss = self.criterion(logits[self.train_lst], self.target[self.train_lst])
+            semi_loss = self.criterion(logits[self.train_lst], self.target[self.train_lst])
+            features_1 = drop_feature(self.features, drop_prob=0.3)
+            features_2 = drop_feature(self.features, drop_prob=0.4)
+
+            output_1, _ = self.model.forward(features_1, self.adj)
+            output_2, _ = self.model.forward(features_2, self.adj)
+
+            loss_cl = self.model.loss(output_1, output_2)
+
+            if epoch <= 50:
+                loss = semi_loss + 0.00001 * loss_cl
+            else:
+                loss = semi_loss + 0.8 * loss_cl
 
             loss.backward()
             self.optimizer.step()
@@ -178,7 +191,8 @@ class TextGCNTrainer:
             desc = dict(
                 **{
                     "epoch": epoch,
-                    "train_loss": loss.item(),
+                    "semi_loss": semi_loss.item(),
+                    "loss_cl": loss_cl.item(),
                 },
                 **val_desc,
             )

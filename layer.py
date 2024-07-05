@@ -58,7 +58,8 @@ class GCN(Module):
         x = self.gc1(x, adj)
         x = th.relu(x)
         x = th.dropout(x, self.dropout, train=self.training)
-        x = self.gc2(x, adj)
+        # x = self.gc2(x, adj)
+        x = torch.spmm(adj, x)
         return x
 
 class Model(Module):
@@ -76,7 +77,7 @@ class Model(Module):
         self.fc = torch.nn.Linear(num_hidden, num_class)
 
     def forward(self, x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
-        h = self.encoder(x = x, adj = adj)
+        h = self.encoder.forward(x = x, adj = adj)
         y_4_semi = self.fc(h)
         return h, y_4_semi
 

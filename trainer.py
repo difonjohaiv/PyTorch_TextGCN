@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 
 
 from layer import GCN
+from layer import Model
 from utils import accuracy
 from utils import macro_f1
 from utils import CudaUse
@@ -109,9 +110,9 @@ class TextGCNTrainer:
     def fit(self):
         self.prepare_data()
         self.model = self.model(
-            nfeat=self.nfeat_dim,
-            nhid=self.args.nhid,
-            nclass=self.nclass,
+            input_dim=self.nfeat_dim,
+            num_hidden=self.args.nhid,
+            num_class=self.nclass,
             dropout=self.args.dropout,
         )
         print(self.model.parameters)
@@ -166,7 +167,7 @@ class TextGCNTrainer:
             self.model.train()
             self.optimizer.zero_grad()
 
-            logits = self.model.forward(self.features, self.adj)
+            _, logits = self.model.forward(self.features, self.adj)
             loss = self.criterion(logits[self.train_lst], self.target[self.train_lst])
 
             loss.backward()
@@ -227,7 +228,7 @@ def main(dataset, times):
     args.val_ratio = 0.1
     args.early_stopping = 50
     args.lr = 0.02
-    model = GCN
+    model = Model
 
     print(args)
 

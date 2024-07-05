@@ -50,15 +50,12 @@ class GCN(Module):
     def __init__(self, nfeat, nhid, nclass, dropout):
         super(GCN, self).__init__()
         self.gc1 = GraphConvolution(nfeat, nhid)
-        self.gc2 = GraphConvolution(nhid, nhid)
-        self.fc = th.nn.Linear(nhid, nclass)
+        self.gc2 = GraphConvolution(nhid, nclass)
         self.dropout = dropout
 
     def forward(self, x, adj):
         x = self.gc1(x, adj)
         x = th.relu(x)
         x = th.dropout(x, self.dropout, train=self.training)
-        # x = self.gc2(x, adj)
-        x = th.spmm(adj, x)
-        logits = self.fc(x)
-        return logits
+        x = self.gc2(x, adj)
+        return x

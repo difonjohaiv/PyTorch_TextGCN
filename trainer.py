@@ -8,11 +8,11 @@ import torch as th
 from sklearn.model_selection import train_test_split
 
 
-from layer import GCN
+# from layer import GCN
 from layer import Model
 from utils import accuracy
 from utils import macro_f1
-from utils import CudaUse
+# from utils import CudaUse
 from utils import EarlyStopping
 from utils import LogResult
 from utils import parameter_parser

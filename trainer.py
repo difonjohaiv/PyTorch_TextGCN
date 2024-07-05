@@ -192,7 +192,7 @@ class TextGCNTrainer:
     def val(self, x, prefix="val"):
         self.model.eval()
         with th.no_grad():
-            logits = self.model.forward(self.features, self.adj)
+            _, logits = self.model.forward(self.features, self.adj)
             loss = self.criterion(logits[x], self.target[x])
             acc = accuracy(logits[x], self.target[x])
             f1, precision, recall = macro_f1(
